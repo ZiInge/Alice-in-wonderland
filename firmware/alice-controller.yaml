@@ -29,3 +29,26 @@ wifi:
     password: "P4iEhfRQ8a2f"
 
 captive_portal:
+
+sensor:
+  - platform: wifi_signal
+    name: "Alice WiFi Signal"
+    update_interval: 60s
+
+  - platform: uptime
+    name: "Alice Uptime"
+
+text_sensor:
+  - platform: version
+    name: "Alice Firmware"
+
+  - platform: wifi_info
+    ip_address:
+      name: "Alice IP Address"
+
+    ssid:
+      name: "Alice Connected WiFi"
+
+button:
+  - platform: restart
+    name: "Alice Restart Controller"
