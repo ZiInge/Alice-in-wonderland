@@ -1,68 +1,124 @@
 INFO ESPHome 2026.6.5
 INFO Loaded validated config cache for alice-controller.yaml, skipping validation.
 INFO Starting log output from alice-controller.local using esphome API
-INFO Successfully resolved alice-controller.local in 1.384s
-INFO Successfully connected to alice-controller @ 192.168.0.47 in 0.008s
-INFO Successful handshake with alice-controller @ 192.168.0.47 in 0.086s
-[13:19:28.490][I][app:151]: ESPHome version 2026.6.5 compiled on 2026-07-14 13:12:28 +0200
-[13:19:28.491][I][app:158]: ESP32 Chip: ESP32-S3 rev0.2, 2 core(s)
-[13:19:28.491][C][logger:223]: Logger:
-[13:19:28.491][C][logger:223]:   Max Level: DEBUG
-[13:19:28.491][C][logger:223]:   Initial Level: DEBUG
-[13:19:28.492][C][logger:230]:   Log Baud Rate: 115200
-[13:19:28.492][C][logger:230]:   Hardware UART: USB_SERIAL_JTAG
-[13:19:28.494][C][logger:239]:   Task Log Buffer Size: 768 bytes
-[13:19:28.519][C][uptime.sensor:017]: Uptime Sensor 'Alice Uptime'
-[13:19:28.519][C][uptime.sensor:017]:   State Class: 'total_increasing'
-[13:19:28.519][C][uptime.sensor:017]:   Unit of Measurement: 's'
-[13:19:28.519][C][uptime.sensor:017]:   Accuracy Decimals: 0
-[13:19:28.520][C][uptime.sensor:232]:   Device Class: 'duration'
-[13:19:28.521][C][uptime.sensor:223]:   Icon: 'mdi:timer-outline'
-[13:19:28.521][C][uptime.sensor:019]:   Type: Seconds
-[13:19:28.536][C][version.text_sensor:016]: Version Text Sensor 'Alice Firmware'
-[13:19:28.540][C][version.text_sensor:223]:   Icon: 'mdi:new-box'
-[13:19:28.563][C][wifi_info:016]: SSID 'Alice Connected WiFi'
-[13:19:28.593][C][wifi_info:016]: IP Address 'Alice IP Address'
-[13:19:28.593][C][restart.button:014]: Restart Button 'Alice Restart Controller'
-[13:19:28.594][C][restart.button:223]:   Icon: 'mdi:restart'
-[13:19:28.629][C][captive_portal:133]: Captive Portal:
-[13:19:28.649][C][wifi:1531]: WiFi:
-[13:19:28.649][C][wifi:1531]:   Local MAC: 14:C1:9F:35:49:78
-[13:19:28.649][C][wifi:1531]:   Connected: YES
-[13:19:28.650][C][wifi:1237]:   IP Address: 192.168.0.47
-[13:19:28.650][C][wifi:1248]:   SSID: 'COMHEM_85EF23'
-[13:19:28.650][C][wifi:1248]:   BSSID: 34:2C:C4:85:3D:2F
-[13:19:28.650][C][wifi:1248]:   Hostname: 'alice-controller'
-[13:19:28.650][C][wifi:1248]:   Signal strength: -51 dB ▂▄▆█
-[13:19:28.650][C][wifi:1248]:   Channel: 11
-[13:19:28.650][C][wifi:1248]:   Subnet: 255.255.255.0
-[13:19:28.650][C][wifi:1248]:   Gateway: 192.168.0.1
-[13:19:28.650][C][wifi:1248]:   DNS1: 83.255.255.1
-[13:19:28.650][C][wifi:1248]:   DNS2: 83.255.255.2
-[13:19:28.667][C][esphome.ota:097]: Over-The-Air updates:
-[13:19:28.667][C][esphome.ota:097]:   Address: alice-controller.local:3232
-[13:19:28.667][C][esphome.ota:097]:   Version: 2
-[13:19:28.704][C][safe_mode:058]: Safe Mode:
-[13:19:28.704][C][safe_mode:058]:   Successful after: 60s
-[13:19:28.704][C][safe_mode:058]:   Invoke after: 10 attempts
-[13:19:28.704][C][safe_mode:058]:   Duration: 300s
-[13:19:28.705][C][safe_mode:079]:   Bootloader rollback: supported
-[13:19:28.706][C][web_server.ota:256]: Web Server OTA
-[13:19:28.724][C][api:243]: Server:
-[13:19:28.724][C][api:243]:   Address: alice-controller.local:6053
-[13:19:28.724][C][api:243]:   Listen backlog: 4
-[13:19:28.724][C][api:243]:   Max connections: 5
-[13:19:28.749][C][api:250]:   Noise encryption: YES
-[13:19:28.749][C][wifi_signal.sensor:017]: WiFi Signal 'Alice WiFi Signal'
-[13:19:28.749][C][wifi_signal.sensor:017]:   State Class: 'measurement'
-[13:19:28.749][C][wifi_signal.sensor:017]:   Unit of Measurement: 'dBm'
-[13:19:28.749][C][wifi_signal.sensor:017]:   Accuracy Decimals: 0
-[13:19:28.750][C][wifi_signal.sensor:232]:   Device Class: 'signal_strength'
-[13:19:28.764][C][mdns:230]: mDNS:
-[13:19:28.764][C][mdns:230]:   Hostname: alice-controller
-[13:20:23.489][I][safe_mode:142]: Boot seems successful; resetting boot loop counter
-[13:20:24.133][S][sensor]: 'Alice Uptime' >> 61 s
-[13:20:24.946][D][preferences:148]: Writing 1 items: 0 cached, 1 written, 0 failed
-[13:20:26.953][S][sensor]: 'Alice WiFi Signal' >> -50 dBm
-[13:21:24.144][S][sensor]: 'Alice Uptime' >> 121 s
-[13:21:26.947][S][sensor]: 'Alice WiFi Signal' >> -54 dBm
+INFO Successfully resolved alice-controller.local in 1.811s
+INFO Successfully connected to alice-controller @ 192.168.0.47 in 0.007s
+INFO Successful handshake with alice-controller @ 192.168.0.47 in 0.072s
+[14:05:40.132][I][app:151]: ESPHome version 2026.6.5 compiled on 2026-07-14 13:47:50 +0200
+[14:05:40.132][I][app:158]: ESP32 Chip: ESP32-S3 rev0.2, 2 core(s)
+[14:05:40.133][C][logger:223]: Logger:
+[14:05:40.133][C][logger:223]:   Max Level: DEBUG
+[14:05:40.133][C][logger:223]:   Initial Level: DEBUG
+[14:05:40.133][C][logger:230]:   Log Baud Rate: 115200
+[14:05:40.133][C][logger:230]:   Hardware UART: USB_SERIAL_JTAG
+[14:05:40.135][C][logger:239]:   Task Log Buffer Size: 768 bytes
+[14:05:40.157][C][uptime.sensor:017]: Uptime Sensor 'Alice Uptime'
+[14:05:40.157][C][uptime.sensor:017]:   State Class: 'total_increasing'
+[14:05:40.157][C][uptime.sensor:017]:   Unit of Measurement: 's'
+[14:05:40.157][C][uptime.sensor:017]:   Accuracy Decimals: 0
+[14:05:40.161][C][uptime.sensor:232]:   Device Class: 'duration'
+[14:05:40.161][C][uptime.sensor:223]:   Icon: 'mdi:timer-outline'
+[14:05:40.162][C][uptime.sensor:019]:   Type: Seconds
+[14:05:40.181][C][ledc.output:217]: Output:
+[14:05:40.181][C][ledc.output:217]:   Channel: 0
+[14:05:40.181][C][ledc.output:217]:   PWM Frequency: 50.0 Hz
+[14:05:40.181][C][ledc.output:217]:   Phase angle: 0.0°
+[14:05:40.181][C][ledc.output:217]:   Bit depth: 14
+[14:05:40.185][C][ledc.output:152]:   Pin GPIO18
+[14:05:40.203][C][adc.esp32:017]: ADC Sensor 'Alice Actuator Feedback Voltage'
+[14:05:40.203][C][adc.esp32:017]:   State Class: 'measurement'
+[14:05:40.203][C][adc.esp32:017]:   Unit of Measurement: 'V'
+[14:05:40.203][C][adc.esp32:017]:   Accuracy Decimals: 2
+[14:05:40.207][C][adc.esp32:232]:   Device Class: 'voltage'
+[14:05:40.208][C][adc.esp32:152]:   Pin: GPIO5
+[14:05:40.208][C][adc.esp32:124]:   Channel:       4
+[14:05:40.208][C][adc.esp32:124]:   Unit:          ADC1
+[14:05:40.208][C][adc.esp32:124]:   Attenuation:   12 dB
+[14:05:40.208][C][adc.esp32:124]:   Samples:       1
+[14:05:40.208][C][adc.esp32:124]:   Sampling mode: average
+[14:05:40.208][C][adc.esp32:124]:   Setup Status:
+[14:05:40.208][C][adc.esp32:124]:     Handle Init:  OK
+[14:05:40.208][C][adc.esp32:124]:     Config:       OK
+[14:05:40.208][C][adc.esp32:124]:     Calibration:  OK
+[14:05:40.208][C][adc.esp32:124]:     Overall Init: OK
+[14:05:40.210][C][adc.esp32:434]:   Update Interval: 0.5s
+[14:05:40.246][C][version.text_sensor:016]: Version Text Sensor 'Alice Firmware'
+[14:05:40.247][C][version.text_sensor:223]:   Icon: 'mdi:new-box'
+[14:05:40.247][C][wifi_info:016]: SSID 'Alice Connected WiFi'
+[14:05:40.265][C][wifi_info:016]: IP Address 'Alice IP Address'
+[14:05:40.304][C][restart.button:014]: Restart Button 'Alice Restart Controller'
+[14:05:40.305][C][restart.button:223]:   Icon: 'mdi:restart'
+[14:05:40.305][C][servo:013]: Servo:
+[14:05:40.305][C][servo:013]:   Idle Level: 7.5%
+[14:05:40.305][C][servo:013]:   Min Level: 3.0%
+[14:05:40.305][C][servo:013]:   Max Level: 12.0%
+[14:05:40.305][C][servo:013]:   Auto-detach time: 0 ms
+[14:05:40.305][C][servo:013]:   Run duration: 0 ms
+[14:05:40.335][C][captive_portal:133]: Captive Portal:
+[14:05:40.356][C][wifi:1531]: WiFi:
+[14:05:40.356][C][wifi:1531]:   Local MAC: 14:C1:9F:35:49:78
+[14:05:40.356][C][wifi:1531]:   Connected: YES
+[14:05:40.357][C][wifi:1237]:   IP Address: 192.168.0.47
+[14:05:40.357][C][wifi:1248]:   SSID: 'COMHEM_85EF23'
+[14:05:40.357][C][wifi:1248]:   BSSID: 34:2C:C4:85:3D:2F
+[14:05:40.357][C][wifi:1248]:   Hostname: 'alice-controller'
+[14:05:40.357][C][wifi:1248]:   Signal strength: -50 dB ▂▄▆█
+[14:05:40.357][C][wifi:1248]:   Channel: 11
+[14:05:40.357][C][wifi:1248]:   Subnet: 255.255.255.0
+[14:05:40.357][C][wifi:1248]:   Gateway: 192.168.0.1
+[14:05:40.357][C][wifi:1248]:   DNS1: 83.255.255.1
+[14:05:40.357][C][wifi:1248]:   DNS2: 83.255.255.2
+[14:05:40.374][C][esphome.ota:097]: Over-The-Air updates:
+[14:05:40.374][C][esphome.ota:097]:   Address: alice-controller.local:3232
+[14:05:40.374][C][esphome.ota:097]:   Version: 2
+[14:05:40.411][C][safe_mode:058]: Safe Mode:
+[14:05:40.411][C][safe_mode:058]:   Successful after: 60s
+[14:05:40.411][C][safe_mode:058]:   Invoke after: 10 attempts
+[14:05:40.411][C][safe_mode:058]:   Duration: 300s
+[14:05:40.412][C][safe_mode:079]:   Bootloader rollback: supported
+[14:05:40.412][C][web_server.ota:256]: Web Server OTA
+[14:05:40.429][C][api:243]: Server:
+[14:05:40.429][C][api:243]:   Address: alice-controller.local:6053
+[14:05:40.429][C][api:243]:   Listen backlog: 4
+[14:05:40.429][C][api:243]:   Max connections: 5
+[14:05:40.449][C][api:250]:   Noise encryption: YES
+[14:05:40.450][C][wifi_signal.sensor:017]: WiFi Signal 'Alice WiFi Signal'
+[14:05:40.450][C][wifi_signal.sensor:017]:   State Class: 'measurement'
+[14:05:40.450][C][wifi_signal.sensor:017]:   Unit of Measurement: 'dBm'
+[14:05:40.450][C][wifi_signal.sensor:017]:   Accuracy Decimals: 0
+[14:05:40.451][C][wifi_signal.sensor:232]:   Device Class: 'signal_strength'
+[14:05:40.468][C][mdns:230]: mDNS:
+[14:05:40.468][C][mdns:230]:   Hostname: alice-controller
+[14:05:40.600][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.27 V
+[14:05:41.100][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.35 V
+[14:05:41.599][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.38 V
+[14:05:42.099][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.34 V
+[14:05:42.599][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.34 V
+[14:05:43.099][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.31 V
+[14:05:43.600][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.30 V
+[14:05:44.098][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.27 V
+[14:05:44.595][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.19 V
+[14:05:45.095][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.23 V
+[14:05:45.595][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.19 V
+[14:05:46.094][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.18 V
+[14:05:46.593][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.14 V
+[14:05:47.093][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.10 V
+[14:05:47.593][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.05 V
+[14:05:48.112][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.97 V
+[14:05:48.592][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.89 V
+[14:05:49.092][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.82 V
+[14:05:49.592][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.83 V
+[14:05:50.092][S][sensor]: 'Alice Actuator Feedback Voltage' >> 2.02 V
+[14:05:50.592][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.88 V
+[14:05:51.092][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.83 V
+[14:05:51.595][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.72 V
+[14:05:52.090][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.79 V
+[14:05:52.589][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.82 V
+[14:05:53.088][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.73 V
+[14:05:53.588][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.70 V
+[14:05:54.087][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.65 V
+[14:05:54.587][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.60 V
+[14:05:55.086][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.59 V
+[14:05:55.585][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.56 V
+[14:05:56.085][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.53 V
+[14:05:56.585][S][sensor]: 'Alice Actuator Feedback Voltage' >> 1.50 V
