@@ -1,1 +1,31 @@
 
+# Board: ESP32-S3 DevKitC-1 (Espressif)
+# Definition: definitions/boards/esp32-s3-devkitc-1/manifest.yaml
+
+esphome:
+  name: alice-controller
+  friendly_name: Alice Controller
+
+esp32:
+  variant: esp32s3
+  flash_size: 8MB
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+  encryption:
+    key: "UnyasmMQk930Ns2TDreUFXBgnlBSiE9khM5BhTUAa4I="
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: Alice Controlle Fallback Hotspot
+    password: "P4iEhfRQ8a2f"
+
+captive_portal:
