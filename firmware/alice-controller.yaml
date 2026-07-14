@@ -24,7 +24,7 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   ap:
-    ssid: Alice Controller Fallback Hotspot
+    ssid: Alice Controlle Fallback Hotspot
     password: "P4iEhfRQ8a2f"
 
 captive_portal:
@@ -41,10 +41,9 @@ sensor:
     pin: GPIO5
     name: "Alice Actuator Feedback Voltage"
     id: alice_actuator_feedback_voltage
-    attenuation: 11db
+    attenuation: 12db
     update_interval: 500ms
-    filters:
-      - multiply: 3.3
+
 
 text_sensor:
   - platform: version
