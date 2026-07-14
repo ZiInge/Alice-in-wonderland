@@ -1,0 +1,68 @@
+INFO ESPHome 2026.6.5
+INFO Loaded validated config cache for alice-controller.yaml, skipping validation.
+INFO Starting log output from alice-controller.local using esphome API
+INFO Successfully resolved alice-controller.local in 1.384s
+INFO Successfully connected to alice-controller @ 192.168.0.47 in 0.008s
+INFO Successful handshake with alice-controller @ 192.168.0.47 in 0.086s
+[13:19:28.490][I][app:151]: ESPHome version 2026.6.5 compiled on 2026-07-14 13:12:28 +0200
+[13:19:28.491][I][app:158]: ESP32 Chip: ESP32-S3 rev0.2, 2 core(s)
+[13:19:28.491][C][logger:223]: Logger:
+[13:19:28.491][C][logger:223]:   Max Level: DEBUG
+[13:19:28.491][C][logger:223]:   Initial Level: DEBUG
+[13:19:28.492][C][logger:230]:   Log Baud Rate: 115200
+[13:19:28.492][C][logger:230]:   Hardware UART: USB_SERIAL_JTAG
+[13:19:28.494][C][logger:239]:   Task Log Buffer Size: 768 bytes
+[13:19:28.519][C][uptime.sensor:017]: Uptime Sensor 'Alice Uptime'
+[13:19:28.519][C][uptime.sensor:017]:   State Class: 'total_increasing'
+[13:19:28.519][C][uptime.sensor:017]:   Unit of Measurement: 's'
+[13:19:28.519][C][uptime.sensor:017]:   Accuracy Decimals: 0
+[13:19:28.520][C][uptime.sensor:232]:   Device Class: 'duration'
+[13:19:28.521][C][uptime.sensor:223]:   Icon: 'mdi:timer-outline'
+[13:19:28.521][C][uptime.sensor:019]:   Type: Seconds
+[13:19:28.536][C][version.text_sensor:016]: Version Text Sensor 'Alice Firmware'
+[13:19:28.540][C][version.text_sensor:223]:   Icon: 'mdi:new-box'
+[13:19:28.563][C][wifi_info:016]: SSID 'Alice Connected WiFi'
+[13:19:28.593][C][wifi_info:016]: IP Address 'Alice IP Address'
+[13:19:28.593][C][restart.button:014]: Restart Button 'Alice Restart Controller'
+[13:19:28.594][C][restart.button:223]:   Icon: 'mdi:restart'
+[13:19:28.629][C][captive_portal:133]: Captive Portal:
+[13:19:28.649][C][wifi:1531]: WiFi:
+[13:19:28.649][C][wifi:1531]:   Local MAC: 14:C1:9F:35:49:78
+[13:19:28.649][C][wifi:1531]:   Connected: YES
+[13:19:28.650][C][wifi:1237]:   IP Address: 192.168.0.47
+[13:19:28.650][C][wifi:1248]:   SSID: 'COMHEM_85EF23'
+[13:19:28.650][C][wifi:1248]:   BSSID: 34:2C:C4:85:3D:2F
+[13:19:28.650][C][wifi:1248]:   Hostname: 'alice-controller'
+[13:19:28.650][C][wifi:1248]:   Signal strength: -51 dB ▂▄▆█
+[13:19:28.650][C][wifi:1248]:   Channel: 11
+[13:19:28.650][C][wifi:1248]:   Subnet: 255.255.255.0
+[13:19:28.650][C][wifi:1248]:   Gateway: 192.168.0.1
+[13:19:28.650][C][wifi:1248]:   DNS1: 83.255.255.1
+[13:19:28.650][C][wifi:1248]:   DNS2: 83.255.255.2
+[13:19:28.667][C][esphome.ota:097]: Over-The-Air updates:
+[13:19:28.667][C][esphome.ota:097]:   Address: alice-controller.local:3232
+[13:19:28.667][C][esphome.ota:097]:   Version: 2
+[13:19:28.704][C][safe_mode:058]: Safe Mode:
+[13:19:28.704][C][safe_mode:058]:   Successful after: 60s
+[13:19:28.704][C][safe_mode:058]:   Invoke after: 10 attempts
+[13:19:28.704][C][safe_mode:058]:   Duration: 300s
+[13:19:28.705][C][safe_mode:079]:   Bootloader rollback: supported
+[13:19:28.706][C][web_server.ota:256]: Web Server OTA
+[13:19:28.724][C][api:243]: Server:
+[13:19:28.724][C][api:243]:   Address: alice-controller.local:6053
+[13:19:28.724][C][api:243]:   Listen backlog: 4
+[13:19:28.724][C][api:243]:   Max connections: 5
+[13:19:28.749][C][api:250]:   Noise encryption: YES
+[13:19:28.749][C][wifi_signal.sensor:017]: WiFi Signal 'Alice WiFi Signal'
+[13:19:28.749][C][wifi_signal.sensor:017]:   State Class: 'measurement'
+[13:19:28.749][C][wifi_signal.sensor:017]:   Unit of Measurement: 'dBm'
+[13:19:28.749][C][wifi_signal.sensor:017]:   Accuracy Decimals: 0
+[13:19:28.750][C][wifi_signal.sensor:232]:   Device Class: 'signal_strength'
+[13:19:28.764][C][mdns:230]: mDNS:
+[13:19:28.764][C][mdns:230]:   Hostname: alice-controller
+[13:20:23.489][I][safe_mode:142]: Boot seems successful; resetting boot loop counter
+[13:20:24.133][S][sensor]: 'Alice Uptime' >> 61 s
+[13:20:24.946][D][preferences:148]: Writing 1 items: 0 cached, 1 written, 0 failed
+[13:20:26.953][S][sensor]: 'Alice WiFi Signal' >> -50 dBm
+[13:21:24.144][S][sensor]: 'Alice Uptime' >> 121 s
+[13:21:26.947][S][sensor]: 'Alice WiFi Signal' >> -54 dBm
