@@ -44,6 +44,29 @@ sensor:
     attenuation: 12db
     update_interval: 500ms
 
+  - platform: template
+    name: "Alice Door Position"
+    id: alice_door_position
+    icon: mdi:garage
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: 500ms
+    lambda: |-
+      float voltage = id(alice_actuator_feedback_voltage).state;
+
+      // Clamp to calibrated range
+      if (voltage < 0.08f) voltage = 0.08f;
+      if (voltage > 3.15f) voltage = 3.15f;
+
+      // Retracted = 0%
+      // Extended = 100%
+      float position = (3.15f - voltage) / (3.15f - 0.08f);
+
+      // Final safety clamp
+      if (position < 0.0f) position = 0.0f;
+      if (position > 1.0f) position = 1.0f;
+
+      return position * 100.0f;
 
 text_sensor:
   - platform: version
