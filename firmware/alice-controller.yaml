@@ -62,6 +62,7 @@ button:
   - platform: template
     name: "Alice Actuator Retract"
     on_press:
+      - logger.log: "RETRACT command sent"
       - servo.write:
           id: alice_servo
           level: -100%
@@ -69,6 +70,7 @@ button:
   - platform: template
     name: "Alice Actuator Extend"
     on_press:
+      - logger.log: "EXTEND command sent"
       - servo.write:
           id: alice_servo
           level: 100%
@@ -82,3 +84,6 @@ output:
 servo:
   - id: alice_servo
     output: alice_pwm_output
+    min_level: 5%
+    idle_level: 7.5%
+    max_level: 10%
