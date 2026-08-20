@@ -55,12 +55,12 @@ sensor:
       float voltage = id(alice_actuator_feedback_voltage).state;
 
       // Clamp to calibrated range
-      if (voltage < 0.08f) voltage = 0.08f;
+      if (voltage < 0.09f) voltage = 0.09f;
       if (voltage > 3.15f) voltage = 3.15f;
 
       // Retracted = 0%
       // Extended = 100%
-      float position = (3.15f - voltage) / (3.15f - 0.08f);
+      float position = (3.15f - voltage) / (3.15f - 0.09f);
 
       // Final safety clamp
       if (position < 0.0f) position = 0.0f;
@@ -85,18 +85,28 @@ button:
   - platform: template
     name: "Alice Actuator Retract"
     on_press:
-      - logger.log: "RETRACT command sent"
-      - servo.write:
-          id: alice_servo
-          level: -100%
+      then:
+        - logger.log: "RETRACT command sent"
+        - servo.write:
+            id: alice_servo
+            level: 7.5%
+        - delay: 200ms
+        - servo.write:
+            id: alice_servo
+            level: -97%
 
   - platform: template
     name: "Alice Actuator Extend"
     on_press:
-      - logger.log: "EXTEND command sent"
-      - servo.write:
-          id: alice_servo
-          level: 100%
+      then:
+        - logger.log: "EXTEND command sent"
+        - servo.write:
+            id: alice_servo
+            level: 7.5%
+        - delay: 200ms
+        - servo.write:
+            id: alice_servo
+            level: 97%
 
 output:
   - platform: ledc
@@ -110,3 +120,4 @@ servo:
     min_level: 5%
     idle_level: 7.5%
     max_level: 10%
+
