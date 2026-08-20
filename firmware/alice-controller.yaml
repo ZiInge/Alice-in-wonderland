@@ -1,9 +1,28 @@
 # Board: ESP32-S3 DevKitC-1 (Espressif)
 # Definition: definitions/boards/esp32-s3-devkitc-1/manifest.yaml
+#
+# Actuator: Actuonix L12-100-210-12-I
+#
+# v1.5.0-b test:
+# - Target position control
+# - Direct position command
+# - 2% target tolerance
+# - 30 second timeout
+# - 200 ms neutral transition when reversing direction
+# - 500 ms startup boost when leaving either end stop
+# - Manual Extend/Retract buttons retained
 
 esphome:
   name: alice-controller
   friendly_name: Alice Controller
+
+  on_boot:
+    priority: -100
+    then:
+      - delay: 2s
+      - lambda: |-
+          id(alice_motion_enabled) = true;
+      - logger.log: "Alice motion control enabled"
 
 esp32:
   variant: esp32s3
@@ -28,6 +47,22 @@ wifi:
     password: "P4iEhfRQ8a2f"
 
 captive_portal:
+
+globals:
+  - id: alice_motion_enabled
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: alice_last_servo_level
+    type: float
+    restore_value: no
+    initial_value: "0.0"
+
+  - id: alice_target_servo_level
+    type: float
+    restore_value: no
+    initial_value: "0.0"
 
 sensor:
   - platform: wifi_signal
@@ -54,7 +89,7 @@ sensor:
     lambda: |-
       float voltage = id(alice_actuator_feedback_voltage).state;
 
-      // Clamp to calibrated range
+      // Calibrated range
       if (voltage < 0.09f) voltage = 0.09f;
       if (voltage > 3.15f) voltage = 3.15f;
 
@@ -78,35 +113,210 @@ text_sensor:
     ssid:
       name: "Alice Connected WiFi"
 
+script:
+  - id: alice_move_to_target
+    mode: restart
+
+    parameters:
+      target_position: float
+
+    then:
+      - logger.log:
+          format: "Target position: %.0f%%"
+          args:
+            - target_position
+
+      # Calculate servo command for target position.
+      # 0% = -1.0
+      # 50% = 0.0
+      # 100% = 1.0
+      - lambda: |-
+          float target_level =
+              (target_position / 50.0f) - 1.0f;
+
+          if (target_level < -1.0f) {
+            target_level = -1.0f;
+          }
+
+          if (target_level > 1.0f) {
+            target_level = 1.0f;
+          }
+
+          id(alice_target_servo_level) = target_level;
+
+      # Determine whether we need to reverse direction.
+      - if:
+          condition:
+            lambda: |-
+              const float last_level = id(alice_last_servo_level);
+              const float target_level = id(alice_target_servo_level);
+
+              return
+                (last_level > 0.01f && target_level < -0.01f) ||
+                (last_level < -0.01f && target_level > 0.01f);
+
+          then:
+            - logger.log: "Direction change - sending neutral"
+            - servo.write:
+                id: alice_servo
+                level: 7.5%
+            - delay: 200ms
+
+      # Startup boost when leaving fully retracted.
+      - if:
+          condition:
+            lambda: |-
+              return
+                id(alice_door_position).state <= 2.0f &&
+                id(alice_target_servo_level) > 0.01f;
+
+          then:
+            - logger.log: "Startup boost: EXTEND"
+            - servo.write:
+                id: alice_servo
+                level: 97%
+            - delay: 500ms
+
+      # Startup boost when leaving fully extended.
+      - if:
+          condition:
+            lambda: |-
+              return
+                id(alice_door_position).state >= 98.0f &&
+                id(alice_target_servo_level) < -0.01f;
+
+          then:
+            - logger.log: "Startup boost: RETRACT"
+            - servo.write:
+                id: alice_servo
+                level: -97%
+            - delay: 500ms
+
+      # Send the actual target position command.
+      - lambda: |-
+          id(alice_servo).write(id(alice_target_servo_level));
+          id(alice_last_servo_level) = id(alice_target_servo_level);
+
+          ESP_LOGD(
+            "main",
+            "Servo target level: %.3f",
+            id(alice_target_servo_level)
+          );
+
+      # Wait until target is reached or timeout occurs.
+      - wait_until:
+          condition:
+            lambda: |-
+              const float error =
+                  id(alice_door_position).state - target_position;
+
+              return error >= -2.0f && error <= 2.0f;
+
+          timeout: 30s
+
+      - if:
+          condition:
+            lambda: |-
+              const float error =
+                  id(alice_door_position).state - target_position;
+
+              return error >= -2.0f && error <= 2.0f;
+
+          then:
+            - logger.log:
+                format: "Target position %.0f%% reached"
+                args:
+                  - target_position
+
+          else:
+            - logger.log:
+                format: "MOTION TIMEOUT - target %.0f%%, current %.0f%%"
+                args:
+                  - target_position
+                  - id(alice_door_position).state
+
+number:
+  - platform: template
+    name: "Alice Target Position"
+    id: alice_target_position
+    icon: mdi:target
+    min_value: 0
+    max_value: 100
+    step: 1
+    unit_of_measurement: "%"
+    optimistic: true
+    restore_value: false
+    initial_value: 0
+
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: |-
+                return id(alice_motion_enabled);
+
+            then:
+              - script.execute:
+                  id: alice_move_to_target
+                  target_position: !lambda "return x;"
+
 button:
   - platform: restart
     name: "Alice Restart Controller"
 
+  # Manual Retract
   - platform: template
     name: "Alice Actuator Retract"
     on_press:
       then:
-        - logger.log: "RETRACT command sent"
-        - servo.write:
-            id: alice_servo
-            level: 7.5%
-        - delay: 200ms
+        - script.stop: alice_move_to_target
+
+        - logger.log: "MANUAL RETRACT command sent"
+
+        - if:
+            condition:
+              lambda: |-
+                return id(alice_last_servo_level) > 0.01f;
+
+            then:
+              - servo.write:
+                  id: alice_servo
+                  level: 7.5%
+              - delay: 200ms
+
         - servo.write:
             id: alice_servo
             level: -97%
 
+        - lambda: |-
+            id(alice_last_servo_level) = -0.97f;
+
+  # Manual Extend
   - platform: template
     name: "Alice Actuator Extend"
     on_press:
       then:
-        - logger.log: "EXTEND command sent"
-        - servo.write:
-            id: alice_servo
-            level: 7.5%
-        - delay: 200ms
+        - script.stop: alice_move_to_target
+
+        - logger.log: "MANUAL EXTEND command sent"
+
+        - if:
+            condition:
+              lambda: |-
+                return id(alice_last_servo_level) < -0.01f;
+
+            then:
+              - servo.write:
+                  id: alice_servo
+                  level: 7.5%
+              - delay: 200ms
+
         - servo.write:
             id: alice_servo
             level: 97%
+
+        - lambda: |-
+            id(alice_last_servo_level) = 0.97f;
 
 output:
   - platform: ledc
@@ -120,4 +330,3 @@ servo:
     min_level: 5%
     idle_level: 7.5%
     max_level: 10%
-
