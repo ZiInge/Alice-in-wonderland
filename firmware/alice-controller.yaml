@@ -1,16 +1,20 @@
-# Board: ESP32-S3 DevKitC-1 (Espressif)
-# Definition: definitions/boards/esp32-s3-devkitc-1/manifest.yaml
+# Alice Controller
+# v1.5.0-c2
 #
+# Board: ESP32-S3 DevKitC-1 (Espressif)
 # Actuator: Actuonix L12-100-210-12-I
 #
-# v1.5.0-b test:
+# v1.5.0-c2:
 # - Target position control
-# - Direct position command
-# - 2% target tolerance
-# - 30 second timeout
+# - +/-5% position deadband
 # - 200 ms neutral transition when reversing direction
-# - 500 ms startup boost when leaving either end stop
-# - Manual Extend/Retract buttons retained
+# - 500 ms startup boost at end stops
+# - Motion state: Idle / Opening / Closing / Fault
+# - No-movement detection
+# - 30 second overall motion timeout
+# - Fault flag
+# - Hold current position on fault
+# - Manual Extend/Retract retained
 
 esphome:
   name: alice-controller
@@ -22,6 +26,10 @@ esphome:
       - delay: 2s
       - lambda: |-
           id(alice_motion_enabled) = true;
+          id(alice_motion_fault) = false;
+      - text_sensor.template.publish:
+          id: alice_motion_state
+          state: "Idle"
       - logger.log: "Alice motion control enabled"
 
 esp32:
@@ -64,6 +72,26 @@ globals:
     restore_value: no
     initial_value: "0.0"
 
+  # Position deadband.
+  # 5% means:
+  # target 50% = acceptable range 45-55%.
+  - id: alice_position_tolerance
+    type: float
+    restore_value: no
+    initial_value: "5.0"
+
+  # Fault flag.
+  - id: alice_motion_fault
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  # Position when active movement monitoring begins.
+  - id: alice_motion_start_position
+    type: float
+    restore_value: no
+    initial_value: "0.0"
+
 sensor:
   - platform: wifi_signal
     name: "Alice WiFi Signal"
@@ -95,7 +123,8 @@ sensor:
 
       // Retracted = 0%
       // Extended = 100%
-      float position = (3.15f - voltage) / (3.15f - 0.09f);
+      float position =
+          (3.15f - voltage) / (3.15f - 0.09f);
 
       // Final safety clamp
       if (position < 0.0f) position = 0.0f;
@@ -113,7 +142,85 @@ text_sensor:
     ssid:
       name: "Alice Connected WiFi"
 
+  - platform: template
+    name: "Alice Motion State"
+    id: alice_motion_state
+    icon: mdi:motion-sensor
+
+binary_sensor:
+  - platform: template
+    name: "Alice Motion Fault"
+    id: alice_motion_fault_sensor
+    device_class: problem
+    lambda: |-
+      return id(alice_motion_fault);
+
 script:
+
+  # ------------------------------------------------------------
+  # HOLD CURRENT POSITION
+  # ------------------------------------------------------------
+
+  - id: alice_hold_current_position
+    mode: restart
+
+    then:
+      - lambda: |-
+          float position = id(alice_door_position).state;
+
+          // Convert current position into actuator command.
+          float hold_level =
+              (position / 50.0f) - 1.0f;
+
+          if (hold_level < -1.0f) {
+            hold_level = -1.0f;
+          }
+
+          if (hold_level > 1.0f) {
+            hold_level = 1.0f;
+          }
+
+          id(alice_servo).write(hold_level);
+          id(alice_last_servo_level) = hold_level;
+
+          ESP_LOGD(
+            "main",
+            "Holding current position %.0f%% (servo %.3f)",
+            position,
+            hold_level
+          );
+
+  # ------------------------------------------------------------
+  # FAULT HANDLER
+  # ------------------------------------------------------------
+
+  - id: alice_motion_fault_handler
+    mode: restart
+
+    parameters:
+      reason: std::string
+
+    then:
+      - lambda: |-
+          id(alice_motion_fault) = true;
+
+      - text_sensor.template.publish:
+          id: alice_motion_state
+          state: "Fault"
+
+      - logger.log:
+          format: "MOTION FAULT: %s"
+          args:
+            - reason.c_str()
+
+      # Do NOT send neutral.
+      # Neutral would command the actuator toward the middle.
+      - script.execute: alice_hold_current_position
+
+  # ------------------------------------------------------------
+  # MOVE TO TARGET
+  # ------------------------------------------------------------
+
   - id: alice_move_to_target
     mode: restart
 
@@ -121,15 +228,23 @@ script:
       target_position: float
 
     then:
+      - lambda: |-
+          // Clear any previous fault before a new command.
+          id(alice_motion_fault) = false;
+
+          id(alice_motion_start_position) =
+              id(alice_door_position).state;
+
+      - text_sensor.template.publish:
+          id: alice_motion_state
+          state: "Idle"
+
       - logger.log:
           format: "Target position: %.0f%%"
           args:
             - target_position
 
-      # Calculate servo command for target position.
-      # 0% = -1.0
-      # 50% = 0.0
-      # 100% = 1.0
+      # Calculate actuator position command.
       - lambda: |-
           float target_level =
               (target_position / 50.0f) - 1.0f;
@@ -142,98 +257,209 @@ script:
             target_level = 1.0f;
           }
 
-          id(alice_target_servo_level) = target_level;
+          id(alice_target_servo_level) =
+              target_level;
 
-      # Determine whether we need to reverse direction.
+      # Determine direction.
       - if:
           condition:
             lambda: |-
-              const float last_level = id(alice_last_servo_level);
-              const float target_level = id(alice_target_servo_level);
-
-              return
-                (last_level > 0.01f && target_level < -0.01f) ||
-                (last_level < -0.01f && target_level > 0.01f);
+              return id(alice_door_position).state <
+                     (target_position -
+                      id(alice_position_tolerance));
 
           then:
-            - logger.log: "Direction change - sending neutral"
-            - servo.write:
-                id: alice_servo
-                level: 7.5%
-            - delay: 200ms
-
-      # Startup boost when leaving fully retracted.
-      - if:
-          condition:
-            lambda: |-
-              return
-                id(alice_door_position).state <= 2.0f &&
-                id(alice_target_servo_level) > 0.01f;
-
-          then:
-            - logger.log: "Startup boost: EXTEND"
-            - servo.write:
-                id: alice_servo
-                level: 97%
-            - delay: 500ms
-
-      # Startup boost when leaving fully extended.
-      - if:
-          condition:
-            lambda: |-
-              return
-                id(alice_door_position).state >= 98.0f &&
-                id(alice_target_servo_level) < -0.01f;
-
-          then:
-            - logger.log: "Startup boost: RETRACT"
-            - servo.write:
-                id: alice_servo
-                level: -97%
-            - delay: 500ms
-
-      # Send the actual target position command.
-      - lambda: |-
-          id(alice_servo).write(id(alice_target_servo_level));
-          id(alice_last_servo_level) = id(alice_target_servo_level);
-
-          ESP_LOGD(
-            "main",
-            "Servo target level: %.3f",
-            id(alice_target_servo_level)
-          );
-
-      # Wait until target is reached or timeout occurs.
-      - wait_until:
-          condition:
-            lambda: |-
-              const float error =
-                  id(alice_door_position).state - target_position;
-
-              return error >= -2.0f && error <= 2.0f;
-
-          timeout: 30s
-
-      - if:
-          condition:
-            lambda: |-
-              const float error =
-                  id(alice_door_position).state - target_position;
-
-              return error >= -2.0f && error <= 2.0f;
-
-          then:
-            - logger.log:
-                format: "Target position %.0f%% reached"
-                args:
-                  - target_position
+            - text_sensor.template.publish:
+                id: alice_motion_state
+                state: "Opening"
 
           else:
-            - logger.log:
-                format: "MOTION TIMEOUT - target %.0f%%, current %.0f%%"
-                args:
-                  - target_position
-                  - id(alice_door_position).state
+            - if:
+                condition:
+                  lambda: |-
+                    return id(alice_door_position).state >
+                           (target_position +
+                            id(alice_position_tolerance));
+
+                then:
+                  - text_sensor.template.publish:
+                      id: alice_motion_state
+                      state: "Closing"
+
+                else:
+                  - text_sensor.template.publish:
+                      id: alice_motion_state
+                      state: "Idle"
+
+      # Already at target?
+      - if:
+          condition:
+            lambda: |-
+              const float error =
+                  id(alice_door_position).state -
+                  target_position;
+
+              const float tolerance =
+                  id(alice_position_tolerance);
+
+              return
+                error >= -tolerance &&
+                error <= tolerance;
+
+          then:
+            - logger.log: "Already within target deadband"
+
+          else:
+
+            # Direction reversal protection.
+            - if:
+                condition:
+                  lambda: |-
+                    const float last_level =
+                        id(alice_last_servo_level);
+
+                    const float target_level =
+                        id(alice_target_servo_level);
+
+                    return
+                      (last_level > 0.01f &&
+                       target_level < -0.01f) ||
+                      (last_level < -0.01f &&
+                       target_level > 0.01f);
+
+                then:
+                  - logger.log:
+                      "Direction change - sending neutral"
+
+                  - servo.write:
+                      id: alice_servo
+                      level: 7.5%
+
+                  - delay: 200ms
+
+            # Startup boost from fully retracted.
+            - if:
+                condition:
+                  lambda: |-
+                    return
+                      id(alice_door_position).state <= 2.0f &&
+                      id(alice_target_servo_level) > 0.01f;
+
+                then:
+                  - logger.log:
+                      "Startup boost: EXTEND"
+
+                  - servo.write:
+                      id: alice_servo
+                      level: 97%
+
+                  - delay: 500ms
+
+            # Startup boost from fully extended.
+            - if:
+                condition:
+                  lambda: |-
+                    return
+                      id(alice_door_position).state >= 98.0f &&
+                      id(alice_target_servo_level) < -0.01f;
+
+                then:
+                  - logger.log:
+                      "Startup boost: RETRACT"
+
+                  - servo.write:
+                      id: alice_servo
+                      level: -97%
+
+                  - delay: 500ms
+
+            # Send target position command.
+            - lambda: |-
+                id(alice_servo).write(
+                    id(alice_target_servo_level)
+                );
+
+                id(alice_last_servo_level) =
+                    id(alice_target_servo_level);
+
+                ESP_LOGD(
+                  "main",
+                  "Servo target level: %.3f",
+                  id(alice_target_servo_level)
+                );
+
+            # ------------------------------------------------
+            # NO-MOVEMENT CHECK
+            # ------------------------------------------------
+
+            # Give the actuator time to begin moving.
+            - delay: 2500ms
+
+            - if:
+                condition:
+                  lambda: |-
+                    const float current =
+                        id(alice_door_position).state;
+
+                    const float start =
+                        id(alice_motion_start_position);
+
+                    return fabsf(current - start) < 1.0f;
+
+                then:
+                  - script.execute:
+                      id: alice_motion_fault_handler
+                      reason: "No position change detected"
+                  - script.stop: alice_move_to_target
+
+            # ------------------------------------------------
+            # TARGET / TIMEOUT CHECK
+            # ------------------------------------------------
+
+            - wait_until:
+                condition:
+                  lambda: |-
+                    const float error =
+                        id(alice_door_position).state -
+                        target_position;
+
+                    const float tolerance =
+                        id(alice_position_tolerance);
+
+                    return
+                      error >= -tolerance &&
+                      error <= tolerance;
+
+                timeout: 30s
+
+            - if:
+                condition:
+                  lambda: |-
+                    const float error =
+                        id(alice_door_position).state -
+                        target_position;
+
+                    const float tolerance =
+                        id(alice_position_tolerance);
+
+                    return
+                      error >= -tolerance &&
+                      error <= tolerance;
+
+                then:
+                  - text_sensor.template.publish:
+                      id: alice_motion_state
+                      state: "Idle"
+
+                  - logger.log:
+                      format: "Target position %.0f%% reached"
+                      args:
+                        - target_position
+
+                else:
+                  - script.execute:
+                      id: alice_motion_fault_handler
+                      reason: "30 second movement timeout"
 
 number:
   - platform: template
@@ -270,8 +496,14 @@ button:
     on_press:
       then:
         - script.stop: alice_move_to_target
+        - script.stop: alice_motion_fault_handler
 
-        - logger.log: "MANUAL RETRACT command sent"
+        - lambda: |-
+            id(alice_motion_fault) = false;
+
+        - text_sensor.template.publish:
+            id: alice_motion_state
+            state: "Closing"
 
         - if:
             condition:
@@ -282,6 +514,7 @@ button:
               - servo.write:
                   id: alice_servo
                   level: 7.5%
+
               - delay: 200ms
 
         - servo.write:
@@ -291,14 +524,49 @@ button:
         - lambda: |-
             id(alice_last_servo_level) = -0.97f;
 
+        # Wait until fully retracted
+        - wait_until:
+            condition:
+              lambda: |-
+                return id(alice_door_position).state <=
+                       id(alice_position_tolerance);
+
+            timeout: 30s
+
+        - if:
+            condition:
+              lambda: |-
+                return id(alice_door_position).state <=
+                       id(alice_position_tolerance);
+
+            then:
+              - text_sensor.template.publish:
+                  id: alice_motion_state
+                  state: "Idle"
+
+              - logger.log:
+                  "Manual retract completed"
+
+            else:
+              - script.execute:
+                  id: alice_motion_fault_handler
+                  reason: "Manual retract timeout"
+
+
   # Manual Extend
   - platform: template
     name: "Alice Actuator Extend"
     on_press:
       then:
         - script.stop: alice_move_to_target
+        - script.stop: alice_motion_fault_handler
 
-        - logger.log: "MANUAL EXTEND command sent"
+        - lambda: |-
+            id(alice_motion_fault) = false;
+
+        - text_sensor.template.publish:
+            id: alice_motion_state
+            state: "Opening"
 
         - if:
             condition:
@@ -309,6 +577,7 @@ button:
               - servo.write:
                   id: alice_servo
                   level: 7.5%
+
               - delay: 200ms
 
         - servo.write:
@@ -317,6 +586,34 @@ button:
 
         - lambda: |-
             id(alice_last_servo_level) = 0.97f;
+
+        # Wait until fully extended
+        - wait_until:
+            condition:
+              lambda: |-
+                return id(alice_door_position).state >=
+                       (100.0f - id(alice_position_tolerance));
+
+            timeout: 30s
+
+        - if:
+            condition:
+              lambda: |-
+                return id(alice_door_position).state >=
+                       (100.0f - id(alice_position_tolerance));
+
+            then:
+              - text_sensor.template.publish:
+                  id: alice_motion_state
+                  state: "Idle"
+
+              - logger.log:
+                  "Manual extend completed"
+
+            else:
+              - script.execute:
+                  id: alice_motion_fault_handler
+                  reason: "Manual extend timeout"
 
 output:
   - platform: ledc
