@@ -1,5 +1,5 @@
 # Alice Controller
-# v1.6.0-b
+# v1.6.0-c
 #
 # Native Home Assistant Cover
 #
@@ -207,6 +207,29 @@ text_sensor:
     name: "Alice Motion State"
     id: alice_motion_state
     icon: mdi:motion-sensor
+
+    on_value:
+      then:
+        - lambda: |-
+            if (x == "Opening") {
+              id(alice_door).current_operation =
+                  esphome::cover::COVER_OPERATION_OPENING;
+              id(alice_door).publish_state();
+            }
+
+            else if (x == "Closing") {
+              id(alice_door).current_operation =
+                  esphome::cover::COVER_OPERATION_CLOSING;
+              id(alice_door).publish_state();
+            }
+
+            else {
+              // Idle or Fault:
+              // the cover is no longer physically travelling.
+              id(alice_door).current_operation =
+                  esphome::cover::COVER_OPERATION_IDLE;
+              id(alice_door).publish_state();
+            }
 
 
 # ==============================================================
