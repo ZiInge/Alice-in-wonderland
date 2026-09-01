@@ -1,5 +1,5 @@
 # Alice Controller
-# v1.6.0-c
+# v1.6.0-d
 #
 # Native Home Assistant Cover
 #
@@ -322,6 +322,191 @@ script:
           );
 
 
+
+  # ------------------------------------------------------------
+  # STOP MOTION
+  # Shared by native Cover Stop and Alice Stop button
+  # ------------------------------------------------------------
+
+  - id: alice_stop_motion
+    mode: restart
+
+    then:
+
+      # Capture current position immediately
+      - lambda: |-
+          id(alice_stop_position) =
+              id(alice_door_position).state;
+
+          ESP_LOGD(
+            "main",
+            "Stop requested at %.0f%%",
+            id(alice_stop_position)
+          );
+
+      # Cancel automatic movement
+      - script.stop:
+          id: alice_move_to_target
+
+      - script.stop:
+          id: alice_motion_fault_handler
+
+      - lambda: |-
+          id(alice_motion_fault) = false;
+
+      # Calculate hold command
+      - lambda: |-
+          float hold_level =
+              (
+                id(alice_stop_position) /
+                50.0f
+              ) - 1.0f;
+
+          if (hold_level < -1.0f) {
+            hold_level = -1.0f;
+          }
+
+          if (hold_level > 1.0f) {
+            hold_level = 1.0f;
+          }
+
+          id(alice_target_servo_level) =
+              hold_level;
+
+      # Direction transition if required
+      - if:
+          condition:
+            lambda: |-
+              const float last_level =
+                  id(alice_last_servo_level);
+
+              const float hold_level =
+                  id(alice_target_servo_level);
+
+              return
+                (
+                  last_level > 0.01f &&
+                  hold_level < -0.01f
+                ) ||
+                (
+                  last_level < -0.01f &&
+                  hold_level > 0.01f
+                );
+
+          then:
+            - logger.log:
+                "Stop requires direction transition"
+
+            - servo.write:
+                id: alice_servo
+                level: 7.5%
+
+            - delay: 200ms
+
+      # Hold captured Stop position
+      - script.execute:
+          id: alice_hold_stop_position
+
+      # Initial reaction period
+      - delay: 750ms
+
+      # Wait for first entry into +/-2% Stop window
+      - wait_until:
+          condition:
+            lambda: |-
+              const float error =
+                  id(alice_door_position).state -
+                  id(alice_stop_position);
+
+              const float tolerance =
+                  id(alice_stop_tolerance);
+
+              return
+                error >= -tolerance &&
+                error <= tolerance;
+
+          timeout: 5s
+
+      # Require 1 second of settling
+      - delay: 1s
+
+      # First stability check
+      - if:
+          condition:
+            lambda: |-
+              const float error =
+                  id(alice_door_position).state -
+                  id(alice_stop_position);
+
+              const float tolerance =
+                  id(alice_stop_tolerance);
+
+              return
+                error >= -tolerance &&
+                error <= tolerance;
+
+          then:
+            - text_sensor.template.publish:
+                id: alice_motion_state
+                state: "Idle"
+
+            - logger.log:
+                format: "Alice stopped and stable at %.0f%%"
+                args:
+                  - id(alice_stop_position)
+
+          else:
+            - logger.log:
+                "Stop still settling - waiting again"
+
+            - wait_until:
+                condition:
+                  lambda: |-
+                    const float error =
+                        id(alice_door_position).state -
+                        id(alice_stop_position);
+
+                    const float tolerance =
+                        id(alice_stop_tolerance);
+
+                    return
+                      error >= -tolerance &&
+                      error <= tolerance;
+
+                timeout: 5s
+
+            - delay: 1s
+
+            - if:
+                condition:
+                  lambda: |-
+                    const float error =
+                        id(alice_door_position).state -
+                        id(alice_stop_position);
+
+                    const float tolerance =
+                        id(alice_stop_tolerance);
+
+                    return
+                      error >= -tolerance &&
+                      error <= tolerance;
+
+                then:
+                  - text_sensor.template.publish:
+                      id: alice_motion_state
+                      state: "Idle"
+
+                  - logger.log:
+                      format: "Alice stopped and stable at %.0f%%"
+                      args:
+                        - id(alice_stop_position)
+
+                else:
+                  - script.execute:
+                      id: alice_motion_fault_handler
+                      reason:
+                        "Stop position failed stability check"
+                        
   # ------------------------------------------------------------
   # FAULT HANDLER
   # ------------------------------------------------------------
@@ -712,6 +897,12 @@ cover:
           id: alice_move_to_target
           target_position: 0.0
 
+    stop_action:
+      - logger.log: "Cover command: STOP"
+
+      - script.execute:
+          id: alice_stop_motion
+
     position_action:
       - logger.log:
           format: "Cover command: POSITION %.0f%%"
@@ -746,197 +937,10 @@ button:
 
     on_press:
       then:
+        - logger.log: "Alice Stop button pressed"
 
-        # Capture current position immediately
-        - lambda: |-
-            id(alice_stop_position) =
-                id(alice_door_position).state;
-
-            ESP_LOGD(
-              "main",
-              "Stop requested at %.0f%%",
-              id(alice_stop_position)
-            );
-
-
-        # Cancel automatic movement
-        - script.stop:
-            id: alice_move_to_target
-
-        - script.stop:
-            id: alice_motion_fault_handler
-
-        - lambda: |-
-            id(alice_motion_fault) = false;
-
-
-        # Calculate hold command
-        - lambda: |-
-            float hold_level =
-                (
-                  id(alice_stop_position) /
-                  50.0f
-                ) - 1.0f;
-
-            if (hold_level < -1.0f) {
-              hold_level = -1.0f;
-            }
-
-            if (hold_level > 1.0f) {
-              hold_level = 1.0f;
-            }
-
-            id(alice_target_servo_level) =
-                hold_level;
-
-
-        # Direction transition if required
-        - if:
-            condition:
-              lambda: |-
-                const float last_level =
-                    id(alice_last_servo_level);
-
-                const float hold_level =
-                    id(alice_target_servo_level);
-
-                return
-                  (
-                    last_level > 0.01f &&
-                    hold_level < -0.01f
-                  ) ||
-                  (
-                    last_level < -0.01f &&
-                    hold_level > 0.01f
-                  );
-
-            then:
-
-              - logger.log:
-                  "Stop requires direction transition"
-
-              - servo.write:
-                  id: alice_servo
-                  level: 7.5%
-
-              - delay: 200ms
-
-
-        # Hold captured Stop position
         - script.execute:
-            id: alice_hold_stop_position
-
-
-        # Initial reaction period
-        - delay: 750ms
-
-
-        # Wait for first entry into +/-2% Stop window
-        - wait_until:
-            condition:
-              lambda: |-
-                const float error =
-                    id(alice_door_position).state -
-                    id(alice_stop_position);
-
-                const float tolerance =
-                    id(alice_stop_tolerance);
-
-                return
-                  error >= -tolerance &&
-                  error <= tolerance;
-
-            timeout: 5s
-
-
-        # Require 1 second of settling
-        - delay: 1s
-
-
-        # First stability check
-        - if:
-            condition:
-              lambda: |-
-                const float error =
-                    id(alice_door_position).state -
-                    id(alice_stop_position);
-
-                const float tolerance =
-                    id(alice_stop_tolerance);
-
-                return
-                  error >= -tolerance &&
-                  error <= tolerance;
-
-            then:
-
-              - text_sensor.template.publish:
-                  id: alice_motion_state
-                  state: "Idle"
-
-              - logger.log:
-                  format:
-                    "Alice stopped and stable at %.0f%%"
-                  args:
-                    - id(alice_stop_position)
-
-
-            else:
-
-              - logger.log:
-                  "Stop still settling - waiting again"
-
-              - wait_until:
-                  condition:
-                    lambda: |-
-                      const float error =
-                          id(alice_door_position).state -
-                          id(alice_stop_position);
-
-                      const float tolerance =
-                          id(alice_stop_tolerance);
-
-                      return
-                        error >= -tolerance &&
-                        error <= tolerance;
-
-                  timeout: 5s
-
-              - delay: 1s
-
-              - if:
-                  condition:
-                    lambda: |-
-                      const float error =
-                          id(alice_door_position).state -
-                          id(alice_stop_position);
-
-                      const float tolerance =
-                          id(alice_stop_tolerance);
-
-                      return
-                        error >= -tolerance &&
-                        error <= tolerance;
-
-                  then:
-
-                    - text_sensor.template.publish:
-                        id: alice_motion_state
-                        state: "Idle"
-
-                    - logger.log:
-                        format:
-                          "Alice stopped and stable at %.0f%%"
-                        args:
-                          - id(alice_stop_position)
-
-                  else:
-
-                    - script.execute:
-                        id: alice_motion_fault_handler
-                        reason:
-                          "Stop position failed stability check"
-
+            id: alice_stop_motion
 
   # ------------------------------------------------------------
   # MANUAL RETRACT
