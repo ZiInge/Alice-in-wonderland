@@ -1,7 +1,7 @@
 # Alice Controller
-# v1.5.0
+# v1.6.0-a
 #
-# Intelligent Motion Controller
+# Native Home Assistant Cover
 #
 # Board: ESP32-S3 DevKitC-1 (Espressif)
 # Actuator: Actuonix L12-100-210-12-I
@@ -657,6 +657,38 @@ number:
                   target_position: !lambda "return x;"
 
 
+# ==============================================================
+# HOME ASSISTANT COVER
+# ==============================================================
+
+cover:
+  - platform: template
+    name: "Alice Door"
+    id: alice_door
+    device_class: garage
+    has_position: true
+
+    lambda: |-
+      if (isnan(id(alice_door_position).state)) {
+        return {};
+      }
+
+      return id(alice_door_position).state / 100.0f;
+
+    open_action:
+      - logger.log: "Cover command: OPEN"
+
+      - script.execute:
+          id: alice_move_to_target
+          target_position: 100.0
+
+    close_action:
+      - logger.log: "Cover command: CLOSE"
+
+      - script.execute:
+          id: alice_move_to_target
+          target_position: 0.0
+                  
 # ==============================================================
 # BUTTONS
 # ==============================================================
