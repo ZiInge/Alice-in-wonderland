@@ -1,5 +1,7 @@
 # Alice Controller
-# v1.5.0-d
+# v1.5.0
+#
+# Intelligent Motion Controller
 #
 # Board: ESP32-S3 DevKitC-1 (Espressif)
 # Actuator: Actuonix L12-100-210-12-I
@@ -375,38 +377,6 @@ script:
       # Movement-start decisions use the rounded actual
       # position and alice_minimum_move.
       # --------------------------------------------------------
-
-      - if:
-          condition:
-            lambda: |-
-              const float current =
-                  roundf(id(alice_door_position).state);
-
-              const float difference =
-                  fabsf(target_position - current);
-
-              return
-                  difference < id(alice_minimum_move);
-
-          then:
-
-            - text_sensor.template.publish:
-                id: alice_motion_state
-                state: "Idle"
-
-            - logger.log:
-                format: "Target %.0f ignored - current %.0f is inside %.0f percent minimum-move threshold"
-                args:
-                  - target_position
-                  - roundf(id(alice_door_position).state)
-                  - id(alice_minimum_move)
-
-
-          else:
-
-            # --------------------------------------------------
-            # Determine motion direction
-            # --------------------------------------------------
 
       - if:
           condition:
