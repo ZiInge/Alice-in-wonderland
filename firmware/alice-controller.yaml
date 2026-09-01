@@ -1,5 +1,5 @@
 # Alice Controller
-# v1.6.0-a
+# v1.6.0-b
 #
 # Native Home Assistant Cover
 #
@@ -688,6 +688,16 @@ cover:
       - script.execute:
           id: alice_move_to_target
           target_position: 0.0
+
+    position_action:
+      - logger.log:
+          format: "Cover command: POSITION %.0f%%"
+          args:
+            - "pos * 100.0f"
+
+      - script.execute:
+          id: alice_move_to_target
+          target_position: !lambda "return pos * 100.0f;"
                   
 # ==============================================================
 # BUTTONS
