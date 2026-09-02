@@ -1,5 +1,5 @@
 # Alice Controller
-# v1.6.0-d
+# v1.6.0
 #
 # Native Home Assistant Cover
 #
@@ -7,20 +7,11 @@
 # Actuator: Actuonix L12-100-210-12-I
 #
 # Features:
-# - Intelligent 0-100% target positioning
-# - +/-5% target arrival tolerance
-# - 8% minimum movement threshold
-# - Rounded whole-percent movement decisions
-# - 200 ms neutral transition when reversing direction
-# - 500 ms startup boost at end stops
-# - Motion state: Idle / Opening / Closing / Fault
-# - No-movement detection
-# - 30 second overall movement timeout
-# - Motion fault sensor
-# - Position hold on fault
-# - Stop button with captured-position hold
-# - +/-2% Stop settling tolerance
-# - 1 second Stop stability verification
+# - Native Home Assistant Cover control
+# - Open/Close and arbitrary position control
+# - Practical Stop with directional braking and position hold
+# - Safe mid-motion direction reversal
+# - Motion fault detection
 # - Manual Extend/Retract controls
 
 esphome:
@@ -112,6 +103,13 @@ globals:
     type: float
     restore_value: no
     initial_value: "2.0"
+
+  # Temporary position correction used during Stop.
+  # Provides a short braking command against mechanical momentum.
+  - id: alice_stop_brake
+    type: float
+    restore_value: no
+    initial_value: "5.0"
 
   - id: alice_motion_fault
     type: bool
@@ -321,11 +319,16 @@ script:
             hold_level
           );
 
-
-
   # ------------------------------------------------------------
   # STOP MOTION
   # Shared by native Cover Stop and Alice Stop button
+  #
+  # v1.6.0:
+  # Simplified practical Stop behaviour.
+  #
+  # Stop cancels active movement, applies a short directional
+  # brake, captures the actual position immediately after
+  # braking, and holds that position.
   # ------------------------------------------------------------
 
   - id: alice_stop_motion
@@ -333,7 +336,10 @@ script:
 
     then:
 
-      # Capture current position immediately
+      # --------------------------------------------------------
+      # Capture position at moment Stop is requested
+      # --------------------------------------------------------
+
       - lambda: |-
           id(alice_stop_position) =
               id(alice_door_position).state;
@@ -344,7 +350,11 @@ script:
             id(alice_stop_position)
           );
 
-      # Cancel automatic movement
+
+      # --------------------------------------------------------
+      # Cancel any active automatic/fault sequence
+      # --------------------------------------------------------
+
       - script.stop:
           id: alice_move_to_target
 
@@ -354,158 +364,133 @@ script:
       - lambda: |-
           id(alice_motion_fault) = false;
 
-      # Calculate hold command
-      - lambda: |-
-          float hold_level =
-              (
-                id(alice_stop_position) /
-                50.0f
-              ) - 1.0f;
 
-          if (hold_level < -1.0f) {
-            hold_level = -1.0f;
+      # --------------------------------------------------------
+      # Calculate directional brake
+      #
+      # Closing -> command slightly more open
+      # Opening -> command slightly more closed
+      # --------------------------------------------------------
+
+      - lambda: |-
+          float brake_position =
+              id(alice_stop_position);
+
+          const float current_level =
+              id(alice_last_servo_level);
+
+          if (current_level < -0.01f) {
+            brake_position += id(alice_stop_brake);
           }
 
-          if (hold_level > 1.0f) {
-            hold_level = 1.0f;
+          else if (current_level > 0.01f) {
+            brake_position -= id(alice_stop_brake);
+          }
+
+          if (brake_position < 0.0f) {
+            brake_position = 0.0f;
+          }
+
+          if (brake_position > 100.0f) {
+            brake_position = 100.0f;
+          }
+
+          float brake_level =
+              (brake_position / 50.0f) - 1.0f;
+
+          if (brake_level < -1.0f) {
+            brake_level = -1.0f;
+          }
+
+          if (brake_level > 1.0f) {
+            brake_level = 1.0f;
           }
 
           id(alice_target_servo_level) =
-              hold_level;
+              brake_level;
 
-      # Direction transition if required
-      - if:
-          condition:
-            lambda: |-
-              const float last_level =
-                  id(alice_last_servo_level);
+          ESP_LOGD(
+            "main",
+            "Stop brake target %.0f%% (servo %.3f)",
+            brake_position,
+            brake_level
+          );
 
-              const float hold_level =
-                  id(alice_target_servo_level);
 
-              return
-                (
-                  last_level > 0.01f &&
-                  hold_level < -0.01f
-                ) ||
-                (
-                  last_level < -0.01f &&
-                  hold_level > 0.01f
-                );
+      # --------------------------------------------------------
+      # Apply braking command
+      # --------------------------------------------------------
 
-          then:
-            - logger.log:
-                "Stop requires direction transition"
+      - servo.write:
+          id: alice_servo
+          level: !lambda "return id(alice_target_servo_level);"
 
-            - servo.write:
-                id: alice_servo
-                level: 7.5%
+      - lambda: |-
+          id(alice_last_servo_level) =
+              id(alice_target_servo_level);
 
-            - delay: 200ms
 
-      # Hold captured Stop position
+      # --------------------------------------------------------
+      # Short active braking period
+      # --------------------------------------------------------
+
+      - delay: 250ms
+
+
+
+      # --------------------------------------------------------
+      # Capture ACTUAL settled position
+      # --------------------------------------------------------
+
+      - lambda: |-
+          const float requested_stop =
+              id(alice_stop_position);
+
+          const float settled_position =
+              id(alice_door_position).state;
+
+          id(alice_stop_position) =
+              settled_position;
+
+          ESP_LOGD(
+            "main",
+            "Stop hold position: requested %.0f%% -> actual %.0f%%",
+            requested_stop,
+            settled_position
+          );
+
+
+      # --------------------------------------------------------
+      # Hold the position where Alice actually settled
+      # --------------------------------------------------------
+
       - script.execute:
           id: alice_hold_stop_position
 
-      # Initial reaction period
-      - delay: 750ms
 
-      # Wait for first entry into +/-2% Stop window
-      - wait_until:
-          condition:
-            lambda: |-
-              const float error =
-                  id(alice_door_position).state -
-                  id(alice_stop_position);
+      # --------------------------------------------------------
+      # Give final hold time to engage
+      # --------------------------------------------------------
 
-              const float tolerance =
-                  id(alice_stop_tolerance);
+      - delay: 500ms
 
-              return
-                error >= -tolerance &&
-                error <= tolerance;
 
-          timeout: 5s
+      # --------------------------------------------------------
+      # Stop complete
+      #
+      # Do NOT fault because actual settled position differs
+      # from the position at which Stop was pressed.
+      # --------------------------------------------------------
 
-      # Require 1 second of settling
-      - delay: 1s
+      - text_sensor.template.publish:
+          id: alice_motion_state
+          state: "Idle"
 
-      # First stability check
-      - if:
-          condition:
-            lambda: |-
-              const float error =
-                  id(alice_door_position).state -
-                  id(alice_stop_position);
+      - logger.log:
+          format: "Alice stopped and holding at %.0f%%"
+          args:
+            - id(alice_stop_position)
 
-              const float tolerance =
-                  id(alice_stop_tolerance);
-
-              return
-                error >= -tolerance &&
-                error <= tolerance;
-
-          then:
-            - text_sensor.template.publish:
-                id: alice_motion_state
-                state: "Idle"
-
-            - logger.log:
-                format: "Alice stopped and stable at %.0f%%"
-                args:
-                  - id(alice_stop_position)
-
-          else:
-            - logger.log:
-                "Stop still settling - waiting again"
-
-            - wait_until:
-                condition:
-                  lambda: |-
-                    const float error =
-                        id(alice_door_position).state -
-                        id(alice_stop_position);
-
-                    const float tolerance =
-                        id(alice_stop_tolerance);
-
-                    return
-                      error >= -tolerance &&
-                      error <= tolerance;
-
-                timeout: 5s
-
-            - delay: 1s
-
-            - if:
-                condition:
-                  lambda: |-
-                    const float error =
-                        id(alice_door_position).state -
-                        id(alice_stop_position);
-
-                    const float tolerance =
-                        id(alice_stop_tolerance);
-
-                    return
-                      error >= -tolerance &&
-                      error <= tolerance;
-
-                then:
-                  - text_sensor.template.publish:
-                      id: alice_motion_state
-                      state: "Idle"
-
-                  - logger.log:
-                      format: "Alice stopped and stable at %.0f%%"
-                      args:
-                        - id(alice_stop_position)
-
-                else:
-                  - script.execute:
-                      id: alice_motion_fault_handler
-                      reason:
-                        "Stop position failed stability check"
                         
   # ------------------------------------------------------------
   # FAULT HANDLER
