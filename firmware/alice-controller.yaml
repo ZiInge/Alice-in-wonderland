@@ -1,5 +1,5 @@
 # Alice Controller
-# v1.6.0
+# v1.6.1
 #
 # Native Home Assistant Cover
 #
@@ -9,6 +9,7 @@
 # Features:
 # - Native Home Assistant Cover control
 # - Open/Close and arbitrary position control
+# - Safe 96% maximum physical opening
 # - Practical Stop with directional braking and position hold
 # - Safe mid-motion direction reversal
 # - Motion fault detection
@@ -83,6 +84,19 @@ globals:
     restore_value: no
     initial_value: "0.0"
 
+  # Physical target position used by the motion controller.
+  - id: alice_motion_target_position
+    type: float
+    restore_value: no
+    initial_value: "0.0"
+
+  # Maximum safe physical opening.
+  # Home Assistant 100% corresponds to 96% physical opening.
+  - id: alice_max_open_position
+    type: float
+    restore_value: no
+    initial_value: "96.0"
+
   # A commanded movement is considered complete
   # once actual position is within +/-5% of target.
   - id: alice_position_tolerance
@@ -98,7 +112,7 @@ globals:
     restore_value: no
     initial_value: "8.0"
 
-  # Stop uses a tighter tolerance than normal positioning.
+  # Stop tolerance retained for compatibility.
   - id: alice_stop_tolerance
     type: float
     restore_value: no
@@ -169,7 +183,7 @@ sensor:
       }
 
       // Retracted = 0%
-      // Extended  = 100%
+      // Extended  = 100% physical actuator position
       float position =
           (3.15f - voltage) /
           (3.15f - 0.09f);
@@ -222,8 +236,6 @@ text_sensor:
             }
 
             else {
-              // Idle or Fault:
-              // the cover is no longer physically travelling.
               id(alice_door).current_operation =
                   esphome::cover::COVER_OPERATION_IDLE;
               id(alice_door).publish_state();
@@ -319,12 +331,13 @@ script:
             hold_level
           );
 
+
   # ------------------------------------------------------------
   # STOP MOTION
   # Shared by native Cover Stop and Alice Stop button
   #
-  # v1.6.0:
-  # Simplified practical Stop behaviour.
+  # v1.6.1:
+  # Practical Stop behaviour.
   #
   # Stop cancels active movement, applies a short directional
   # brake, captures the actual position immediately after
@@ -391,8 +404,10 @@ script:
             brake_position = 0.0f;
           }
 
-          if (brake_position > 100.0f) {
-            brake_position = 100.0f;
+          if (brake_position >
+              id(alice_max_open_position)) {
+            brake_position =
+                id(alice_max_open_position);
           }
 
           float brake_level =
@@ -437,9 +452,8 @@ script:
       - delay: 250ms
 
 
-
       # --------------------------------------------------------
-      # Capture ACTUAL settled position
+      # Capture ACTUAL position immediately after braking
       # --------------------------------------------------------
 
       - lambda: |-
@@ -461,7 +475,7 @@ script:
 
 
       # --------------------------------------------------------
-      # Hold the position where Alice actually settled
+      # Hold the position where Alice actually stopped
       # --------------------------------------------------------
 
       - script.execute:
@@ -478,8 +492,8 @@ script:
       # --------------------------------------------------------
       # Stop complete
       #
-      # Do NOT fault because actual settled position differs
-      # from the position at which Stop was pressed.
+      # Mechanical settling away from the original Stop position
+      # is NOT treated as a motion fault.
       # --------------------------------------------------------
 
       - text_sensor.template.publish:
@@ -491,7 +505,7 @@ script:
           args:
             - id(alice_stop_position)
 
-                        
+
   # ------------------------------------------------------------
   # FAULT HANDLER
   # ------------------------------------------------------------
@@ -537,10 +551,46 @@ script:
           id(alice_motion_start_position) =
               id(alice_door_position).state;
 
+
+      # --------------------------------------------------------
+      # Log requested logical target
+      # --------------------------------------------------------
+
       - logger.log:
           format: "Target position: %.0f%%"
           args:
             - target_position
+
+
+      # --------------------------------------------------------
+      # Convert requested target to safe physical target
+      #
+      # Home Assistant can request 100%, but the actuator must
+      # never intentionally move beyond 96% physical opening.
+      # --------------------------------------------------------
+
+      - lambda: |-
+          float physical_target =
+              target_position;
+
+          if (physical_target >
+              id(alice_max_open_position)) {
+            physical_target =
+                id(alice_max_open_position);
+          }
+
+          if (physical_target < 0.0f) {
+            physical_target = 0.0f;
+          }
+
+          id(alice_motion_target_position) =
+              physical_target;
+
+          ESP_LOGD(
+            "main",
+            "Physical target position: %.0f%%",
+            physical_target
+          );
 
 
       # --------------------------------------------------------
@@ -549,7 +599,10 @@ script:
 
       - lambda: |-
           float target_level =
-              (target_position / 50.0f) - 1.0f;
+              (
+                id(alice_motion_target_position) /
+                50.0f
+              ) - 1.0f;
 
           if (target_level < -1.0f) {
             target_level = -1.0f;
@@ -567,8 +620,7 @@ script:
       # Determine whether movement is worth initiating
       #
       # IMPORTANT:
-      # Movement-start decisions use the rounded actual
-      # position and alice_minimum_move.
+      # Movement-start decisions use the physical target.
       # --------------------------------------------------------
 
       - if:
@@ -578,7 +630,10 @@ script:
                   roundf(id(alice_door_position).state);
 
               const float difference =
-                  fabsf(target_position - current);
+                  fabsf(
+                    id(alice_motion_target_position) -
+                    current
+                  );
 
               return
                 difference < id(alice_minimum_move);
@@ -589,13 +644,15 @@ script:
                 state: "Idle"
 
             - logger.log:
-                format: "Target %.0f ignored - current %.0f is inside %.0f percent minimum-move threshold"
+                format:
+                  "Target %.0f ignored - physical target %.0f is inside %.0f percent minimum-move threshold"
                 args:
                   - target_position
-                  - roundf(id(alice_door_position).state)
+                  - id(alice_motion_target_position)
                   - id(alice_minimum_move)
 
           else:
+
             # --------------------------------------------------
             # Determine motion direction
             # --------------------------------------------------
@@ -608,7 +665,9 @@ script:
                           id(alice_door_position).state
                         );
 
-                    return current < target_position;
+                    return
+                      current <
+                      id(alice_motion_target_position);
 
                 then:
                   - text_sensor.template.publish:
@@ -686,14 +745,18 @@ script:
 
 
             # --------------------------------------------------
-            # Startup boost from fully extended
+            # Startup boost from safe fully-open position
             # --------------------------------------------------
 
             - if:
                 condition:
                   lambda: |-
                     return
-                      id(alice_door_position).state >= 98.0f &&
+                      id(alice_door_position).state >=
+                      (
+                        id(alice_max_open_position) -
+                        2.0f
+                      ) &&
                       id(alice_target_servo_level) < -0.01f;
 
                 then:
@@ -756,7 +819,7 @@ script:
 
 
             # --------------------------------------------------
-            # Wait until target is within +/-5%
+            # Wait until physical target is within +/-5%
             # --------------------------------------------------
 
             - wait_until:
@@ -764,7 +827,7 @@ script:
                   lambda: |-
                     const float error =
                         id(alice_door_position).state -
-                        target_position;
+                        id(alice_motion_target_position);
 
                     const float tolerance =
                         id(alice_position_tolerance);
@@ -785,7 +848,7 @@ script:
                   lambda: |-
                     const float error =
                         id(alice_door_position).state -
-                        target_position;
+                        id(alice_motion_target_position);
 
                     const float tolerance =
                         id(alice_position_tolerance);
@@ -802,9 +865,10 @@ script:
 
                   - logger.log:
                       format:
-                        "Target position %.0f%% reached"
+                        "Target position %.0f%% reached (physical %.0f%%)"
                       args:
                         - target_position
+                        - id(alice_motion_target_position)
 
                 else:
 
@@ -866,7 +930,17 @@ cover:
         return {};
       }
 
-      return id(alice_door_position).state / 100.0f;
+      float physical_position =
+          id(alice_door_position).state;
+
+      if (physical_position >
+          id(alice_max_open_position)) {
+        physical_position =
+            id(alice_max_open_position);
+      }
+
+      return physical_position /
+             id(alice_max_open_position);
 
     open_action:
       - logger.log: "Cover command: OPEN"
@@ -897,7 +971,8 @@ cover:
       - script.execute:
           id: alice_move_to_target
           target_position: !lambda "return pos * 100.0f;"
-                  
+
+
 # ==============================================================
 # BUTTONS
 # ==============================================================
@@ -926,6 +1001,7 @@ button:
 
         - script.execute:
             id: alice_stop_motion
+
 
   # ------------------------------------------------------------
   # MANUAL RETRACT
@@ -1048,13 +1124,15 @@ button:
               - delay: 200ms
 
 
+        # Safe physical maximum = 96%
+        # 96% position corresponds to servo level 0.92
         - servo.write:
             id: alice_servo
-            level: 97%
+            level: 92%
 
 
         - lambda: |-
-            id(alice_last_servo_level) = 0.97f;
+            id(alice_last_servo_level) = 0.92f;
 
 
         - wait_until:
@@ -1063,7 +1141,7 @@ button:
                 return
                   id(alice_door_position).state >=
                   (
-                    100.0f -
+                    id(alice_max_open_position) -
                     id(alice_position_tolerance)
                   );
 
@@ -1076,7 +1154,7 @@ button:
                 return
                   id(alice_door_position).state >=
                   (
-                    100.0f -
+                    id(alice_max_open_position) -
                     id(alice_position_tolerance)
                   );
 
@@ -1087,7 +1165,7 @@ button:
                   state: "Idle"
 
               - logger.log:
-                  "Manual extend completed"
+                  "Manual extend completed at safe maximum"
 
             else:
 
